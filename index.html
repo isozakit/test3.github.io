@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Test</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+
+    <!-- インポートマップの定義 -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.module.js",
+            "GLTFLoader": "https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/loaders/GLTFLoader.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'GLTFLoader';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const light = new THREE.AmbientLight(0x404040, 2);
+        scene.add(light);
+
+        let model;
+        const loader = new GLTFLoader();
+        loader.load(
+            './model-box.glb',
+            (gltf) => {
+                model = gltf.scene;
+                scene.add(model);
+                model.rotation.y = Math.PI / 4;
+            },
+            undefined,
+            (error) => {
+                console.error('モデルの読み込み中にエラーが発生しました:', error);
+            }
+        );
+
+        camera.position.z = 5;
+
+        let isTouching = false;
+        let previousTouchX = 0;
+        let rotationVelocity = 0;
+
+        // タッチイベントの設定
+        window.addEventListener('touchstart', (event) => {
+            isTouching = true;
+            previousTouchX = event.touches[0].clientX;
+            rotationVelocity = 0;
+        });
+
+        window.addEventListener('touchmove', (event) => {
+            if (isTouching && model) {
+                const touchX = event.touches[0].clientX;
+                const deltaX = touchX - previousTouchX;
+                rotationVelocity = deltaX * 0.1; // 回転速度を計算
+                model.rotation.y += rotationVelocity;
+                previousTouchX = touchX;
+            }
+        });
+
+        window.addEventListener('touchend', () => {
+            isTouching = false;
+        });
+
+        // アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 慣性による回転
+            if (!isTouching && model) {
+                rotationVelocity *= 0.95; // 慣性減衰
+                model.rotation.y += rotationVelocity;
+                if (Math.abs(rotationVelocity) < 0.001) {
+                    rotationVelocity = 0;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
