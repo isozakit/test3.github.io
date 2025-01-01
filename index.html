@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Test</title>
+    <title>3D年賀状</title>
     <style>
         body { margin: 0; }
         canvas { display: block; }
     </style>
+    <!-- OGP設定 -->
+    <meta property="og:title" content="回せば回すほど福がクル。大きく回せば大きくクル！">
+    <meta property="og:description" content="3Dモデルを操作して楽しむ年賀状です">
+    <meta property="og:image" content="image01.png">
 
     <!-- インポートマップの定義 -->
     <script type="importmap">
@@ -26,12 +30,16 @@
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        const light = new THREE.AmbientLight(0x404040, 2);
+        const light = new THREE.AmbientLight(0xffffff, 3);
         scene.add(light);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
 
         let model;
         const loader = new GLTFLoader();
@@ -50,44 +58,98 @@
 
         camera.position.z = 5;
 
-        let isTouching = false;
-        let previousTouchX = 0;
-        let rotationVelocity = 0;
+        let isInteracting = false;
+        let startInteraction = { x: 0, y: 0 };
+        let rotationVelocity = { x: 0, y: 0 };
 
-        // タッチイベントの設定
-        window.addEventListener('touchstart', (event) => {
-            isTouching = true;
-            previousTouchX = event.touches[0].clientX;
-            rotationVelocity = 0;
-        });
+        function onStart(event) {
+            isInteracting = true;
+            startInteraction.x = event.clientX || event.touches[0].clientX;
+            startInteraction.y = event.clientY || event.touches[0].clientY;
+            rotationVelocity.x = 0;
+            rotationVelocity.y = 0;
+        }
 
-        window.addEventListener('touchmove', (event) => {
-            if (isTouching && model) {
-                const touchX = event.touches[0].clientX;
-                const deltaX = touchX - previousTouchX;
-                rotationVelocity = deltaX * 0.1; // 回転速度を計算
-                model.rotation.y += rotationVelocity;
-                previousTouchX = touchX;
+        function onMove(event) {
+            if (isInteracting && model) {
+                const currentX = event.clientX || event.touches[0].clientX;
+                const currentY = event.clientY || event.touches[0].clientY;
+
+                const deltaX = currentX - startInteraction.x;
+                const deltaY = currentY - startInteraction.y;
+
+                rotationVelocity.y = deltaX * 0.02;
+                rotationVelocity.x = -deltaY * 0.02;
+
+                model.rotation.x += rotationVelocity.x;
+                model.rotation.y += rotationVelocity.y;
+
+                startInteraction.x = currentX;
+                startInteraction.y = currentY;
             }
+        }
+
+        function onEnd() {
+            isInteracting = false;
+        }
+
+        window.addEventListener('mousedown', onStart);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+
+        window.addEventListener('touchstart', onStart);
+        window.addEventListener('touchmove', onMove);
+        window.addEventListener('touchend', onEnd);
+
+        // パーティクル用のジオメトリとマテリアルを作成
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 1000;
+        const positions = new Float32Array(starCount * 3);
+        const colors = new Float32Array(starCount * 3);
+
+        for (let i = 0; i < starCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 100;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
+
+            colors[i * 3] = Math.random(); // Red
+            colors[i * 3 + 1] = Math.random(); // Green
+            colors[i * 3 + 2] = Math.random(); // Blue
+        }
+
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const starMaterial = new THREE.PointsMaterial({
+            size: 0.2,
+            vertexColors: true, // 各頂点に色を設定
+            transparent: true,
+            opacity: 0.8,
         });
 
-        window.addEventListener('touchend', () => {
-            isTouching = false;
-        });
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
 
-        // アニメーションループ
+        function animateStars() {
+            stars.rotation.x += 0.0001;
+            stars.rotation.y += 0.0001;
+        }
+
         function animate() {
             requestAnimationFrame(animate);
 
-            // 慣性による回転
-            if (!isTouching && model) {
-                rotationVelocity *= 0.95; // 慣性減衰
-                model.rotation.y += rotationVelocity;
-                if (Math.abs(rotationVelocity) < 0.001) {
-                    rotationVelocity = 0;
-                }
+            if (!isInteracting && model) {
+                rotationVelocity.x *= 0.95;
+                rotationVelocity.y *= 0.95;
+
+                model.rotation.x += rotationVelocity.x;
+                model.rotation.y += rotationVelocity.y;
+
+                if (Math.abs(rotationVelocity.x) < 0.001) rotationVelocity.x = 0;
+                if (Math.abs(rotationVelocity.y) < 0.001) rotationVelocity.y = 0;
             }
 
+            animateStars();
             renderer.render(scene, camera);
         }
         animate();
