@@ -101,6 +101,12 @@
         window.addEventListener('touchmove', onMove);
         window.addEventListener('touchend', onEnd);
 
+        // マウスホイールでズームイン・アウト
+        window.addEventListener('wheel', (event) => {
+            camera.position.z += event.deltaY * 0.01;
+            camera.position.z = Math.max(2, Math.min(10, camera.position.z)); // 制限範囲を設定
+        });
+
         // パーティクル用のジオメトリとマテリアルを作成
         const starGeometry = new THREE.BufferGeometry();
         const starCount = 1000;
@@ -156,3 +162,4 @@
     </script>
 </body>
 </html>
+
